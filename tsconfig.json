@@ -11,7 +11,6 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "allowJs": true
-    // "types" অ্যারেটি মুছে দিন
   },
   "include": ["src/**/*.ts", "server.ts"],
   "exclude": ["node_modules", "dist"]
