@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { query } from '../db/index.ts';
+import { query } from '../db/index';
 
 export const register = async (req: Request, res: Response) => {
   const { username, name, email, phone, study_level, group, password } = req.body;
