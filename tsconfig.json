@@ -10,9 +10,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "allowJs": true,
-    "types": ["node", "express"]
-    // ❌ এই দুটি লাইন সরিয়ে ফেলুন: allowImportingTsExtensions ও noEmit
+    "allowJs": true
+    // "types" অ্যারেটি মুছে দিন
   },
   "include": ["src/**/*.ts", "server.ts"],
   "exclude": ["node_modules", "dist"]
