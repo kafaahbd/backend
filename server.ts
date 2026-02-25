@@ -2,8 +2,8 @@ import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
-import authRoutes from './src/server/routes/authRoutes.ts';
-import testRoutes from './src/server/routes/test.ts';
+import authRoutes from './src/server/routes/authRoutes';
+import testRoutes from './src/server/routes/test';
 
 dotenv.config();
 
