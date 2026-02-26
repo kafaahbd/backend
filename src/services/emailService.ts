@@ -1,6 +1,5 @@
 import { Resend } from 'resend';
 
-// Resend ক্লায়েন্ট ইনিশিয়ালাইজ করুন
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const sendVerificationEmail = async (email: string, token: string, name: string) => {
@@ -11,7 +10,8 @@ export const sendVerificationEmail = async (email: string, token: string, name: 
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Kafa\'ah <noreply@kafaah.com>', // Resend-এ verified sender হতে পারে
+      // ⚠️ শুধু এই লাইনটি পরিবর্তন করুন (আপনার ডোমেইনের জায়গায় onboarding@resend.dev ব্যবহার করুন)
+      from: 'Kafa\'ah <onboarding@resend.dev>',
       to: [email],
       subject: 'Verify Your Email Address',
       html: `
