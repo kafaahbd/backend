@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import authRoutes from './src/server/routes/authRoutes.js';
 import testRoutes from './src/server/routes/test.js';
-
+import './src/server/jobs/cleanupUnverified.js';
 dotenv.config();
 
 const app = express();
