@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { 
   register, login, getProfile, 
-  verifyEmail, resendVerification 
+  verifyCode, resendCode 
 } from '../controllers/authController.js';
 import { authenticateToken } from '../middleware/auth.js';
 
@@ -10,8 +10,8 @@ const router = Router();
 // Public routes
 router.post('/register', register);
 router.post('/login', login);
-router.get('/verify-email', verifyEmail);
-router.post('/resend-verification', resendVerification);
+router.post('/verify-code', verifyCode);        // কোড ভেরিফিকেশন
+router.post('/resend-code', resendCode);        // কোড রিসেন্ড
 
 // Protected routes
 router.get('/profile', authenticateToken, getProfile);

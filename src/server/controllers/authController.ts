@@ -2,8 +2,12 @@ import type { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { query } from '../db/index.js';
-import { sendVerificationEmail } from '../../services/emailService.js';
-import crypto from 'crypto';
+import { sendVerificationCode } from '../../services/emailService.js';
+
+// ৬-ডিজিটের র‍্যান্ডম কোড জেনারেটর
+const generateVerificationCode = (): string => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
 
 // ==================== রেজিস্ট্রেশন ====================
 export const register = async (req: Request, res: Response) => {
@@ -28,24 +32,25 @@ export const register = async (req: Request, res: Response) => {
       [username, name, email, phone, study_level, group, hashedPassword]
     );
 
-    // Generate verification token (24 hours expiry)
-    const token = crypto.randomBytes(32).toString('hex');
+    // Generate 6-digit verification code
+    const code = generateVerificationCode();
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
+    expiresAt.setMinutes(expiresAt.getMinutes() + 15); // ১৫ মিনিট validity
 
-    // Save token to database
+    // Save code to database
     await query(
-      `INSERT INTO verification_tokens (user_id, token, expires_at) 
+      `INSERT INTO verification_codes (user_id, code, expires_at) 
        VALUES ($1, $2, $3)`,
-      [newUser.rows[0].id, token, expiresAt]
+      [newUser.rows[0].id, code, expiresAt]
     );
 
-    // Send verification email
-    await sendVerificationEmail(email, token, name);
+    // Send verification email with code
+    await sendVerificationCode(email, code, name);
 
     res.status(201).json({
-      message: 'User registered successfully. Please check your email for verification.',
-      user: newUser.rows[0]
+      message: 'User registered successfully. Please check your email for verification code.',
+      userId: newUser.rows[0].id,
+      email: email
     });
   } catch (error: any) {
     console.error('Registration error:', error);
@@ -53,34 +58,43 @@ export const register = async (req: Request, res: Response) => {
   }
 };
 
-// ==================== ইমেল ভেরিফিকেশন ====================
-export const verifyEmail = async (req: Request, res: Response) => {
-  const { token } = req.query;
+// ==================== কোড ভেরিফিকেশন ====================
+export const verifyCode = async (req: Request, res: Response) => {
+  const { email, code } = req.body;
 
   try {
-    // Find valid token (not expired)
-    const tokenResult = await query(
-      `SELECT vt.*, u.email, u.verified 
-       FROM verification_tokens vt
-       JOIN users u ON vt.user_id = u.id
-       WHERE vt.token = $1 AND vt.expires_at > NOW()`,
-      [token]
-    );
-
-    if (tokenResult.rows.length === 0) {
-      return res.status(400).json({ message: 'Invalid or expired token' });
+    // Find user by email
+    const userResult = await query('SELECT id, verified FROM users WHERE email = $1', [email]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    const { user_id, email } = tokenResult.rows[0];
+    const user = userResult.rows[0];
+
+    if (user.verified) {
+      return res.status(400).json({ message: 'Email already verified' });
+    }
+
+    // Find valid code
+    const codeResult = await query(
+      `SELECT * FROM verification_codes 
+       WHERE user_id = $1 AND code = $2 AND expires_at > NOW() 
+       ORDER BY created_at DESC LIMIT 1`,
+      [user.id, code]
+    );
+
+    if (codeResult.rows.length === 0) {
+      return res.status(400).json({ message: 'Invalid or expired code' });
+    }
 
     // Update user as verified
     await query(
       `UPDATE users SET verified = true, verified_at = NOW() WHERE id = $1`,
-      [user_id]
+      [user.id]
     );
 
-    // Delete used token
-    await query(`DELETE FROM verification_tokens WHERE token = $1`, [token]);
+    // Delete used code
+    await query(`DELETE FROM verification_codes WHERE id = $1`, [codeResult.rows[0].id]);
 
     res.json({ message: 'Email verified successfully. You can now login.' });
   } catch (error: any) {
@@ -89,8 +103,8 @@ export const verifyEmail = async (req: Request, res: Response) => {
   }
 };
 
-// ==================== ভেরিফিকেশন ইমেল রিসেন্ড ====================
-export const resendVerification = async (req: Request, res: Response) => {
+// ==================== কোড রিসেন্ড ====================
+export const resendCode = async (req: Request, res: Response) => {
   const { email } = req.body;
 
   try {
@@ -107,24 +121,24 @@ export const resendVerification = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Email already verified' });
     }
 
-    // Generate new token
-    const token = crypto.randomBytes(32).toString('hex');
+    // Generate new code
+    const code = generateVerificationCode();
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
+    expiresAt.setMinutes(expiresAt.getMinutes() + 15);
 
-    // Delete old tokens
-    await query('DELETE FROM verification_tokens WHERE user_id = $1', [user.id]);
+    // Delete old codes
+    await query('DELETE FROM verification_codes WHERE user_id = $1', [user.id]);
 
-    // Save new token
+    // Save new code
     await query(
-      'INSERT INTO verification_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
-      [user.id, token, expiresAt]
+      'INSERT INTO verification_codes (user_id, code, expires_at) VALUES ($1, $2, $3)',
+      [user.id, code, expiresAt]
     );
 
-    // Send email
-    await sendVerificationEmail(email, token, user.name);
+    // Send email with new code
+    await sendVerificationCode(email, code, user.name);
 
-    res.json({ message: 'Verification email resent. Please check your inbox.' });
+    res.json({ message: 'Verification code resent. Please check your inbox.' });
   } catch (error: any) {
     console.error('Resend error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -133,10 +147,9 @@ export const resendVerification = async (req: Request, res: Response) => {
 
 // ==================== লগইন ====================
 export const login = async (req: Request, res: Response) => {
-  const { identifier, password } = req.body; // identifier can be username or email
+  const { identifier, password } = req.body;
 
   try {
-    // Find user by email or username
     const result = await query('SELECT * FROM users WHERE email = $1 OR username = $2', [identifier, identifier]);
     const user = result.rows[0];
 
@@ -153,20 +166,17 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    // Verify password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Create JWT
     const token = jwt.sign(
       { id: user.id, email: user.email },
       process.env.JWT_SECRET as string,
       { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as any }
     );
 
-    // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
 
     res.json({
