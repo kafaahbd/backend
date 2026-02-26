@@ -1,20 +1,41 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
+
+// IPv4 বাধ্যতামূলক করতে DNS রেজলভার সেট করুন
+dns.setDefaultResultOrder('ipv4first');
 
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  host: process.env.SMTP_HOST,
   port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false,
+  secure: false, // true for 465, false for other ports
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  tls: {
+    rejectUnauthorized: false // Render-এ SSL সংযোগের জন্য প্রয়োজন
+  },
+  // IPv4 ব্যবহার বাধ্যতামূলক করতে নিচের অপশন যোগ করুন
+  connectionTimeout: 30000, // 30 সেকেন্ড
+  socketTimeout: 30000,
 });
 
 export const sendVerificationEmail = async (email: string, token: string, name: string) => {
+  // ডিবাগিং লগ
+  console.log('📧 Sending verification email to:', email);
+  console.log('🔧 SMTP Config:', {
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT,
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS ? '✅ Set' : '❌ Not set',
+    appUrl: process.env.APP_URL,
+  });
+
   const verificationLink = `${process.env.APP_URL}/verify-email?token=${token}`;
+  console.log('🔗 Verification link:', verificationLink);
   
   const mailOptions = {
-    from: '"Kafa\'ah" <noreply@kafaah.com>',
+    from: `"Kafa'ah" <${process.env.SMTP_USER}>`,
     to: email,
     subject: 'Verify Your Email Address',
     html: `
@@ -30,5 +51,12 @@ export const sendVerificationEmail = async (email: string, token: string, name: 
     `,
   };
 
-  await transporter.sendMail(mailOptions);
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Email sent successfully:', info.messageId);
+    return info;
+  } catch (error) {
+    console.error('❌ Email sending error:', error);
+    throw error; // error টি register ফাংশনে ধরা হবে
+  }
 };
