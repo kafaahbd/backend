@@ -6,6 +6,7 @@ import { query } from '../db/index.js';
 export const register = async (req: Request, res: Response) => {
   const { username, name, email, phone, study_level, group, password } = req.body;
 
+  
   try {
     // Check if user already exists
     const userExists = await query('SELECT * FROM users WHERE email = $1 OR username = $2', [email, username]);
@@ -16,7 +17,7 @@ export const register = async (req: Request, res: Response) => {
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-
+    
     // Insert user
     const newUser = await query(
       'INSERT INTO users (username, name, email, phone, study_level, "group", password) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, username, name, email',
