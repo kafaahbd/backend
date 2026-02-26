@@ -34,4 +34,17 @@ export const query = (text: string, params?: any[]) => pool.query(text, params);
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
   );
+
+  -- ভেরিফিকেশন টোকেন সংরক্ষণের জন্য নতুন টেবিল
+CREATE TABLE verification_tokens (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  token VARCHAR(255) UNIQUE NOT NULL,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- users টেবিলে verified কলাম যোগ করুন
+ALTER TABLE users ADD COLUMN verified BOOLEAN DEFAULT false;
+ALTER TABLE users ADD COLUMN verified_at TIMESTAMP WITH TIME ZONE;
  */
