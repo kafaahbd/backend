@@ -6,6 +6,8 @@ import testRoutes from './src/server/routes/test.js';
 import './src/server/jobs/cleanupUnverified.js';
 import examRoutes from './src/server/routes/examRoutes.js';
 
+
+
 dotenv.config();
 
 

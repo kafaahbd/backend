@@ -150,6 +150,7 @@ export const login = async (req: Request, res: Response) => {
   const { identifier, password } = req.body;
 
   try {
+    // ইমেইল বা ইউজারনেম দিয়ে ইউজার খোঁজা
     const result = await query('SELECT * FROM users WHERE email = $1 OR username = $2', [identifier, identifier]);
     const user = result.rows[0];
 
@@ -157,20 +158,42 @@ export const login = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Check if email is verified
-    if (!user.verified) {
-      return res.status(403).json({ 
-        message: 'Please verify your email before logging in',
-        needsVerification: true,
-        email: user.email
-      });
-    }
-
+    // পাসওয়ার্ড চেক করা (ভেরিফিকেশন চেকের আগেই করা ভালো নিরাপত্তার জন্য)
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    // ১. ইমেইল ভেরিফাইড কি না চেক করা
+    if (!user.verified) {
+      // নতুন কোড জেনারেট করা
+      const newCode = generateVerificationCode();
+      const expiresAt = new Date(Date.now() + 15 * 60000); // ১৫ মিনিট মেয়াদ
+
+      // ডাটাবেজে টোকেন সেভ বা আপডেট করা (UPSERT logic)
+      await query(
+        `INSERT INTO verification_tokens (user_id, token, expires_at) 
+         VALUES ($1, $2, $3) 
+         ON CONFLICT (user_id) 
+         DO UPDATE SET token = $2, expires_at = $3`,
+        [user.id, newCode, expiresAt]
+      );
+
+      // ইমেইল পাঠানো (doyosoft.xyz ডোমেইন থেকে)
+      try {
+        await sendVerificationCode(user.email, newCode, user.name);
+      } catch (mailError) {
+        console.error('Mail sending failed during login:', mailError);
+      }
+
+      return res.status(403).json({ 
+        message: 'Email not verified. A new verification code has been sent to your email.',
+        needsVerification: true,
+        email: user.email
+      });
+    }
+
+    // ২. লগইন সাকসেসফুল হলে টোকেন তৈরি করা
     const token = jwt.sign(
       { id: user.id, email: user.email },
       process.env.JWT_SECRET as string,
@@ -184,6 +207,7 @@ export const login = async (req: Request, res: Response) => {
       token,
       user: userWithoutPassword
     });
+
   } catch (error: any) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Server error during login' });
