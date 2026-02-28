@@ -8,7 +8,7 @@ export const sendVerificationCode = async (email: string, code: string, name: st
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Kafa\'ah <onboarding@resend.dev>',
+      from: 'Kafa\'ah <noreply@doyosoft.xyz>',
       to: [email],
       subject: 'Your Email Verification Code',
       html: `
